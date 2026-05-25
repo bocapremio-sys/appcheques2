@@ -11,5 +11,5 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     restart: unless-stopped
-    ports:
-      - "80:80"
+    expose:
+      - "80"
