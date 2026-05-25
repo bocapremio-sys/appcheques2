@@ -1,5 +1,6 @@
 # Banco de dados: Supabase (externo, cloud)
 # Não há container de banco — as credenciais ficam no .env
+# Proxy reverso gerenciado pelo Easypanel (Traefik) — nginx removido
 
 services:
   frontend:
@@ -10,23 +11,5 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     restart: unless-stopped
-    networks:
-      - app_network
-
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
     ports:
-      - "99:99"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-    depends_on:
-      - frontend
-    networks:
-      - app_network
-
-networks:
-  app_network:
-    driver: bridge
+      - "80:80"
