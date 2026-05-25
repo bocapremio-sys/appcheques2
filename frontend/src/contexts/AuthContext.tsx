@@ -29,8 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    const timeout = setTimeout(() => setIsLoading(false), 8000)
+
     supabase!.auth.getSession().then(({ data }) => {
+      clearTimeout(timeout)
       setSession(data.session)
+      setIsLoading(false)
+    }).catch(() => {
+      clearTimeout(timeout)
       setIsLoading(false)
     })
 
@@ -38,7 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(newSession)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      clearTimeout(timeout)
+      listener.subscription.unsubscribe()
+    }
   }, [modoMock])
 
   const signIn = async (email: string, password: string): Promise<string | null> => {
