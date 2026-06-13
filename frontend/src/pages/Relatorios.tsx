@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Calendar, Users, ChevronDown, Download, FileS
 import type { Cheque } from '../types/cheque'
 import { formatarMoeda, formatarData } from '../utils/formatters'
 import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
-import { parseISODate } from '../utils/chequeCalculo'
+import { calculateChequeDiscount, parseISODate } from '../utils/chequeCalculo'
 import { exportarRelatorioExcel, exportarRelatorioPDF, exportarClienteExcel } from '../utils/exportar'
 
 interface RelatoriosProps {
@@ -18,6 +18,17 @@ const PERIODO_LABELS: Record<PeriodoFiltro, string> = {
   '90d': 'Últimos 90 dias',
   '365d': 'Último ano',
   'todos': 'Todo período',
+}
+
+// Desconto (lucro em juros) contratado para o cheque, da emissão ao vencimento —
+// mesma fonte de verdade usada no cadastro, detalhe e dashboard.
+function calcularDescontoCheque(c: Cheque): number {
+  return calculateChequeDiscount({
+    nominalValue: c.valor_nominal,
+    monthlyInterestRatePercent: c.taxa_juros_mes,
+    issueDate: c.data_emissao,
+    dueDate: c.data_vencimento,
+  }).totalDiscountValue
 }
 
 function filtrarPorPeriodo(cheques: Cheque[], periodo: PeriodoFiltro): Cheque[] {
@@ -43,11 +54,10 @@ export function Relatorios({ cheques }: RelatoriosProps) {
     const recuperados = chequesPerido.filter((c) => c.status === 'recuperado')
     const emCustodia = chequesPerido.filter((c) => c.status === 'em_custodia')
 
-    const lucroJuros = compensados.reduce((acc, c) => {
-      const saida = c.data_compensacao ? parseISODate(c.data_compensacao) : hoje
-      const dias = calcularDiasCorreidos(parseISODate(c.data_entrada_custodia), saida)
-      return acc + calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
-    }, 0)
+    // Lucro em juros: desconto contratado dos cheques que ainda geram ou já geraram
+    // retorno (em custódia, compensados ou recuperados) — devolvidos não entram aqui.
+    const lucroJuros = [...emCustodia, ...compensados, ...recuperados]
+      .reduce((acc, c) => acc + calcularDescontoCheque(c), 0)
 
     const prejuizo = devolvidos.reduce((acc, c) => {
       const devolucao = c.data_devolucao ? parseISODate(c.data_devolucao) : hoje
@@ -84,11 +94,9 @@ export function Relatorios({ cheques }: RelatoriosProps) {
         total: 0, compensados: 0, devolvidos: 0,
         valorTotal: 0, jurosTotal: 0,
       }
-      const saida = c.data_compensacao ? parseISODate(c.data_compensacao) : hoje
-      const dias = calcularDiasCorreidos(parseISODate(c.data_entrada_custodia), saida)
-      const juros = c.status === 'compensado'
-        ? calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
-        : 0
+      const juros = c.status === 'devolvido' || c.status === 'cancelado'
+        ? 0
+        : calcularDescontoCheque(c)
 
       mapa.set(key, {
         ...atual,
@@ -207,7 +215,7 @@ export function Relatorios({ cheques }: RelatoriosProps) {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <MetricCard label="Cheques" valor={String(relPeriodo.totalCheques)} sub="no período" color="#60A5FA" />
             <MetricCard label="Compensados" valor={String(relPeriodo.compensados)} sub={`${relPeriodo.devolvidos} devolvidos`} color="var(--positive)" />
-            <MetricCard label="Juros recebidos" valor={formatarMoeda(relPeriodo.lucroJuros)} sub="receita de custódia" color="var(--positive)" />
+            <MetricCard label="Lucro em juros" valor={formatarMoeda(relPeriodo.lucroJuros)} sub="em custódia + realizado" color="var(--positive)" />
             <MetricCard
               label="Resultado líquido"
               valor={formatarMoeda(relPeriodo.resultado)}
@@ -225,7 +233,7 @@ export function Relatorios({ cheques }: RelatoriosProps) {
               <Linha label="Devolvidos" valor={String(relPeriodo.devolvidos)} color="var(--danger)" />
               <Linha label="Recuperados" valor={String(relPeriodo.recuperados)} color="var(--amber)" />
               <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px', marginTop: '12px' }}>
-                <Linha label="Juros recebidos (lucro)" valor={formatarMoeda(relPeriodo.lucroJuros)} color="var(--positive)" />
+                <Linha label="Lucro em juros (custódia + realizado)" valor={formatarMoeda(relPeriodo.lucroJuros)} color="var(--positive)" />
                 <Linha label="Exposição a prejuízo" valor={formatarMoeda(relPeriodo.prejuizo)} color="var(--danger)" />
                 <Linha
                   label="Resultado líquido"
