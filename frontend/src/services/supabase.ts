@@ -12,5 +12,3 @@ const credenciaisValidas =
 export const supabase = credenciaisValidas
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null
-
-export const supabaseConfigurado = credenciaisValidas
