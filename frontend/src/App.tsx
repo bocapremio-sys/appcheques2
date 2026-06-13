@@ -50,7 +50,7 @@ function AppAutenticado({ signOut }: { signOut: () => Promise<void> }) {
   const [chequeEditando, setChequeEditando] = useState<Cheque | null>(null)
   const [menuMobileAberto, setMenuMobileAberto] = useState(false)
 
-  const { cheques, emitentes, adicionarCheque, editarCheque, atualizarStatus, registrarPagamento, salvarEmitente } = useCheques()
+  const { cheques, emitentes, adicionarCheque, editarCheque, atualizarStatus, salvarEmitente } = useCheques()
   const metrics = useMemo(() => calcularMetricasDashboard(cheques), [cheques])
   const notificacoes = useNotificacoes(cheques)
 
@@ -235,7 +235,7 @@ function AppAutenticado({ signOut }: { signOut: () => Promise<void> }) {
                 Métricas calculadas em tempo real a partir dos cheques cadastrados.
               </p>
             </div>
-            <Dashboard metrics={metrics} />
+            <Dashboard metrics={metrics} cheques={cheques} onVerDetalhe={setChequeDetalhado} />
           </div>
         )}
 
@@ -378,9 +378,6 @@ function AppAutenticado({ signOut }: { signOut: () => Promise<void> }) {
           onAtualizarStatus={(id, status, extra) => {
             atualizarStatus(id, status, extra)
             setChequeDetalhado(null)
-          }}
-          onRegistrarPagamento={(id, numeroParcela, dataPagamento) => {
-            registrarPagamento(id, numeroParcela, dataPagamento)
           }}
           onEditar={(cheque) => { setChequeEditando(cheque); setChequeDetalhado(null) }}
         />

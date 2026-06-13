@@ -4,8 +4,8 @@ import { useState } from 'react'
 import type { ChequeFormData, Emitente } from '../types/cheque'
 import { validarCpfCnpj } from '../utils/formatters'
 import { BANCOS } from '../utils/mockData'
-import { gerarParcelas } from '../utils/parcelamento'
-import { formatarData, formatarMoeda } from '../utils/formatters'
+import { ChequeCalculoPreview } from './ChequeCalculoPreview'
+import { formatISODate } from '../utils/chequeCalculo'
 
 interface FormularioChequeProps {
   onSubmit: (dados: ChequeFormData) => void
@@ -27,22 +27,15 @@ export function FormularioCheque({ onSubmit, onCancelar, emitentes, isLoading }:
     formState: { errors },
   } = useForm<ChequeFormData>({
     defaultValues: {
-      data_entrada_custodia: new Date().toISOString().split('T')[0],
+      data_emissao: formatISODate(new Date()),
       taxa_juros_mes: 3.3,
-      total_parcelas: 1,
     },
   })
 
-  const hoje = new Date().toISOString().split('T')[0]
-
   const valorNominal = useWatch({ control, name: 'valor_nominal' })
-  const totalParcelas = useWatch({ control, name: 'total_parcelas' })
-  const dataEntrada = useWatch({ control, name: 'data_entrada_custodia' })
-
-  const previewParcelas =
-    totalParcelas && totalParcelas > 1 && valorNominal > 0 && dataEntrada
-      ? gerarParcelas(valorNominal, totalParcelas, new Date(dataEntrada))
-      : null
+  const taxaJurosMes = useWatch({ control, name: 'taxa_juros_mes' })
+  const dataEmissao = useWatch({ control, name: 'data_emissao' })
+  const dataVencimento = useWatch({ control, name: 'data_vencimento' })
 
   const aplicarEmitente = (id: string) => {
     const e = emitentes.find((em) => em.id === id)
@@ -215,75 +208,17 @@ export function FormularioCheque({ onSubmit, onCancelar, emitentes, isLoading }:
               placeholder="3.3"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
-              Ex: 3.3 = 3,3% ao mês · distribuído em dias úteis
+              Ex: 3.3 = 3,3% ao mês
             </p>
-          </Field>
-
-          <Field label="Parcelamento" className="sm:col-span-2">
-            <div className="flex items-center gap-3">
-              <select
-                {...register('total_parcelas', { valueAsNumber: true })}
-                className="input"
-                style={{ maxWidth: '180px' }}
-              >
-                <option value={1}>À vista (1x)</option>
-                {[2,3,4,5,6,7,8,9,10,11,12].map((n) => (
-                  <option key={n} value={n}>{n}x sem juros adicionais</option>
-                ))}
-              </select>
-              {totalParcelas && totalParcelas > 1 && valorNominal > 0 && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {formatarMoeda(Math.round((valorNominal / totalParcelas) * 100) / 100)} / parcela
-                </p>
-              )}
-            </div>
           </Field>
         </div>
-
-        {/* Preview das parcelas */}
-        {previewParcelas && (
-          <div
-            className="mt-3 rounded-xl p-3"
-            style={{
-              backgroundColor: 'var(--accent-dim)',
-              border: '1px solid var(--accent-dim)',
-            }}
-          >
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--accent)' }}>
-              Datas de vencimento (dias úteis)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {previewParcelas.map((p) => (
-                <div
-                  key={p.numero}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
-                  style={{
-                    backgroundColor: 'var(--accent-dim)',
-                    border: '1px solid var(--accent-dim)',
-                  }}
-                >
-                  <span className="text-xs tabular" style={{ color: 'var(--text-secondary)' }}>
-                    {p.numero}ª
-                  </span>
-                  <span className="text-xs tabular font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {formatarData(p.data_vencimento)}
-                  </span>
-                  <span className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>
-                    {formatarMoeda(p.valor)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </Secao>
 
       <Secao titulo="Datas">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Data de Emissão *" error={errors.data_emissao?.message}>
             <input
               type="date"
-              max={hoje}
               {...register('data_emissao', { required: 'Data de emissão obrigatória' })}
               className="input tabular"
             />
@@ -292,19 +227,23 @@ export function FormularioCheque({ onSubmit, onCancelar, emitentes, isLoading }:
           <Field label="Data de Vencimento *" error={errors.data_vencimento?.message}>
             <input
               type="date"
-              {...register('data_vencimento', { required: 'Data de vencimento obrigatória' })}
+              {...register('data_vencimento', {
+                required: 'Data de vencimento obrigatória',
+                validate: (v) =>
+                  !dataEmissao || !v || v >= dataEmissao || 'Vencimento não pode ser anterior à emissão',
+              })}
               className="input tabular"
             />
           </Field>
+        </div>
 
-          <Field label="Entrada em Custódia *" error={errors.data_entrada_custodia?.message}>
-            <input
-              type="date"
-              max={hoje}
-              {...register('data_entrada_custodia', { required: 'Data de entrada obrigatória' })}
-              className="input tabular"
-            />
-          </Field>
+        <div className="mt-4">
+          <ChequeCalculoPreview
+            valorNominal={valorNominal}
+            taxaJurosMes={taxaJurosMes}
+            dataEmissao={dataEmissao}
+            dataVencimento={dataVencimento}
+          />
         </div>
       </Secao>
 

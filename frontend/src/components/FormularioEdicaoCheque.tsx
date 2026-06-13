@@ -1,7 +1,8 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import type { Cheque } from '../types/cheque'
 import { validarCpfCnpj } from '../utils/formatters'
 import { BANCOS } from '../utils/mockData'
+import { ChequeCalculoPreview } from './ChequeCalculoPreview'
 
 export type ChequeEdicaoData = {
   emitente: string
@@ -13,7 +14,6 @@ export type ChequeEdicaoData = {
   taxa_juros_mes: number
   data_emissao: string
   data_vencimento: string
-  data_entrada_custodia: string
   observacoes?: string
 }
 
@@ -30,11 +30,10 @@ export function FormularioEdicaoCheque({
   onCancelar,
   isLoading,
 }: FormularioEdicaoChequeProps) {
-  const hoje = new Date().toISOString().split('T')[0]
-
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<ChequeEdicaoData>({
     defaultValues: {
@@ -47,10 +46,14 @@ export function FormularioEdicaoCheque({
       taxa_juros_mes: cheque.taxa_juros_mes,
       data_emissao: cheque.data_emissao,
       data_vencimento: cheque.data_vencimento,
-      data_entrada_custodia: cheque.data_entrada_custodia,
       observacoes: cheque.observacoes ?? '',
     },
   })
+
+  const valorNominal = useWatch({ control, name: 'valor_nominal' })
+  const taxaJurosMes = useWatch({ control, name: 'taxa_juros_mes' })
+  const dataEmissao = useWatch({ control, name: 'data_emissao' })
+  const dataVencimento = useWatch({ control, name: 'data_vencimento' })
 
   const onSubmit = (dados: ChequeEdicaoData) => {
     onSalvar(cheque.id, dados)
@@ -179,18 +182,17 @@ export function FormularioEdicaoCheque({
               placeholder="3.3"
             />
             <p className="text-xs mt-1" style={{ color: '#475569' }}>
-              Ex: 3.3 = 3,3% ao mês · distribuído em dias úteis
+              Ex: 3.3 = 3,3% ao mês
             </p>
           </Field>
         </div>
       </Secao>
 
       <Secao titulo="Datas">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Data de Emissão *" error={errors.data_emissao?.message}>
             <input
               type="date"
-              max={hoje}
               {...register('data_emissao', { required: 'Data de emissão obrigatória' })}
               className="input tabular"
             />
@@ -199,19 +201,23 @@ export function FormularioEdicaoCheque({
           <Field label="Data de Vencimento *" error={errors.data_vencimento?.message}>
             <input
               type="date"
-              {...register('data_vencimento', { required: 'Data de vencimento obrigatória' })}
+              {...register('data_vencimento', {
+                required: 'Data de vencimento obrigatória',
+                validate: (v) =>
+                  !dataEmissao || !v || v >= dataEmissao || 'Vencimento não pode ser anterior à emissão',
+              })}
               className="input tabular"
             />
           </Field>
+        </div>
 
-          <Field label="Entrada em Custódia *" error={errors.data_entrada_custodia?.message}>
-            <input
-              type="date"
-              max={hoje}
-              {...register('data_entrada_custodia', { required: 'Data de entrada obrigatória' })}
-              className="input tabular"
-            />
-          </Field>
+        <div className="mt-4">
+          <ChequeCalculoPreview
+            valorNominal={valorNominal}
+            taxaJurosMes={taxaJurosMes}
+            dataEmissao={dataEmissao}
+            dataVencimento={dataVencimento}
+          />
         </div>
       </Secao>
 

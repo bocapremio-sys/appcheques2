@@ -44,65 +44,19 @@ function getFeriadosVariaveis(ano: number): Date[] {
   ]
 }
 
-function isFeriado(data: Date): boolean {
-  const ano = data.getFullYear()
-  const mmdd = `${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
-
-  if (FERIADOS_FIXOS.includes(mmdd)) return true
-
-  const feriadosVariaveis = getFeriadosVariaveis(ano)
-  return feriadosVariaveis.some(
-    (f) =>
-      f.getDate() === data.getDate() &&
-      f.getMonth() === data.getMonth() &&
-      f.getFullYear() === data.getFullYear()
-  )
-}
-
-export function calcularDiasUteis(dataInicio: Date, dataFim: Date): number {
-  if (dataFim <= dataInicio) return 0
-
-  let dias = 0
-  const atual = new Date(dataInicio)
-  atual.setDate(atual.getDate() + 1)
-
-  while (atual <= dataFim) {
-    const diaSemana = atual.getDay()
-    const ehFimDeSemana = diaSemana === 0 || diaSemana === 6
-
-    if (!ehFimDeSemana && !isFeriado(atual)) {
-      dias++
-    }
-
-    atual.setDate(atual.getDate() + 1)
-  }
-
-  return dias
+/** Lista de feriados (fixos + móveis) de um ano, para reuso por outros módulos de cálculo. */
+export function gerarFeriadosDoAno(ano: number): Date[] {
+  const fixos = FERIADOS_FIXOS.map((mmdd) => {
+    const [mes, dia] = mmdd.split('-').map(Number)
+    return new Date(ano, mes - 1, dia)
+  })
+  return [...fixos, ...getFeriadosVariaveis(ano)]
 }
 
 export function calcularDiasCorreidos(dataInicio: Date, dataFim: Date): number {
   if (dataFim <= dataInicio) return 0
   const diff = dataFim.getTime() - dataInicio.getTime()
   return Math.floor(diff / (1000 * 60 * 60 * 24))
-}
-
-export function proximoDiaUtil(data: Date): Date {
-  const d = new Date(data)
-  // Avança enquanto for fim de semana ou feriado
-  while (true) {
-    const diaSemana = d.getDay()
-    if (diaSemana === 6) { d.setDate(d.getDate() + 2); continue }
-    if (diaSemana === 0) { d.setDate(d.getDate() + 1); continue }
-    if (isFeriado(d))    { d.setDate(d.getDate() + 1); continue }
-    break
-  }
-  return d
-}
-
-export function adicionarMesesEmDiaUtil(base: Date, meses: number): Date {
-  const d = new Date(base)
-  d.setMonth(d.getMonth() + meses)
-  return proximoDiaUtil(d)
 }
 
 // taxa_juros_mes em % ao mês (ex: 3.3 = 3,3% a.m.)
@@ -116,9 +70,4 @@ export function calcularJuros(
 ): number {
   const taxaDia = taxaJurosMes / 30
   return valorNominal * (taxaDia / 100) * diasCorreidos
-}
-
-// Valor líquido que o emitente recebe: valor - juros (desconto)
-export function calcularValorLiquido(valorNominal: number, juros: number): number {
-  return valorNominal - juros
 }

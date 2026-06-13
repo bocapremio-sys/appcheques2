@@ -23,8 +23,6 @@ interface Cheque {
   data_devolucao?: string
   data_recuperacao?: string
   observacoes?: string
-  total_parcelas?: number
-  parcelas_pagas?: number
   created_at: string
   updated_at: string
 }

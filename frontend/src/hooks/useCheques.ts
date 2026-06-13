@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react'
 import type { Cheque, ChequeFormData, ChequeStatus, Emitente, MotivoDevolucao } from '../types/cheque'
 import type { ChequeEdicaoData } from '../components/FormularioEdicaoCheque'
 import { MOCK_CHEQUES, MOCK_EMITENTES } from '../utils/mockData'
-import { gerarParcelas, registrarPagamentoParcela, todasPagas } from '../utils/parcelamento'
 import { supabaseConfigurado } from '../services/supabase'
 import { chequesService } from '../services/chequesService'
 import { emitentesService } from '../services/emitentesService'
@@ -15,7 +14,6 @@ interface UsarChequesReturn {
   adicionarCheque: (dados: ChequeFormData) => Promise<void>
   editarCheque: (id: string, dados: ChequeEdicaoData) => Promise<void>
   atualizarStatus: (id: string, status: ChequeStatus, extra?: Partial<Cheque>) => Promise<void>
-  registrarPagamento: (id: string, numeroParcela: number, dataPagamento: string) => Promise<void>
   removerCheque: (id: string) => Promise<void>
   salvarEmitente: (emitente: Omit<Emitente, 'id'>) => Promise<void>
 }
@@ -47,21 +45,12 @@ export function useCheques(): UsarChequesReturn {
     }
 
     // Mock
-    const totalParcelas = dados.total_parcelas && dados.total_parcelas > 1
-      ? dados.total_parcelas
-      : undefined
-    const parcelas = totalParcelas
-      ? gerarParcelas(dados.valor_nominal, totalParcelas, new Date(dados.data_entrada_custodia))
-      : undefined
-
     setCheques((prev) => [
       {
         ...dados,
         id: crypto.randomUUID(),
+        data_entrada_custodia: dados.data_emissao,
         status: 'em_custodia',
-        total_parcelas: totalParcelas,
-        parcelas_pagas: totalParcelas ? 0 : undefined,
-        parcelas,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -91,36 +80,6 @@ export function useCheques(): UsarChequesReturn {
             ? { ...c, status, ...extra, updated_at: new Date().toISOString() }
             : c
         )
-      )
-    },
-    []
-  )
-
-  const registrarPagamento = useCallback(
-    async (id: string, numeroParcela: number, dataPagamento: string) => {
-      setCheques((prev) =>
-        prev.map((c) => {
-          if (c.id !== id || !c.parcelas) return c
-
-          const novasParcelas = registrarPagamentoParcela(c.parcelas, numeroParcela, dataPagamento)
-          const pagas = novasParcelas.filter((p) => p.pago).length
-          const finalizado = todasPagas(novasParcelas)
-
-          if (supabaseConfigurado) {
-            chequesService
-              .registrarPagamentoParcela(id, numeroParcela, dataPagamento, pagas, finalizado)
-              .catch((e: unknown) => setErro(e instanceof Error ? e.message : 'Erro ao registrar pagamento'))
-          }
-
-          return {
-            ...c,
-            parcelas: novasParcelas,
-            parcelas_pagas: pagas,
-            status: finalizado ? 'compensado' : c.status,
-            data_compensacao: finalizado ? dataPagamento : c.data_compensacao,
-            updated_at: new Date().toISOString(),
-          }
-        })
       )
     },
     []
@@ -161,7 +120,6 @@ export function useCheques(): UsarChequesReturn {
     adicionarCheque,
     editarCheque,
     atualizarStatus,
-    registrarPagamento,
     removerCheque,
     salvarEmitente,
   }

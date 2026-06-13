@@ -207,10 +207,7 @@ export function ListaCheques({ cheques, onNovoCheque, onVerDetalhe }: ListaChequ
                       {formatarData(cheque.data_vencimento)}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={cheque.status} />
-                        <ParcelaBadge cheque={cheque} />
-                      </div>
+                      <StatusBadge status={cheque.status} />
                     </td>
                     <td className="px-4 py-3.5">
                       <ChevronRight
@@ -254,12 +251,9 @@ export function ListaCheques({ cheques, onNovoCheque, onVerDetalhe }: ListaChequ
                   <span className="tabular font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {formatarMoeda(cheque.valor_nominal)}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <ParcelaBadge cheque={cheque} />
-                    <span className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>
-                      Venc. {formatarData(cheque.data_vencimento)}
-                    </span>
-                  </div>
+                  <span className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>
+                    Venc. {formatarData(cheque.data_vencimento)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -271,42 +265,5 @@ export function ListaCheques({ cheques, onNovoCheque, onVerDetalhe }: ListaChequ
         Exibindo {chequesFiltrados.length} de {cheques.length} cheque(s)
       </p>
     </div>
-  )
-}
-
-function ParcelaBadge({ cheque }: { cheque: Cheque }) {
-  if (!cheque.total_parcelas || cheque.total_parcelas <= 1) return null
-
-  const pagas = cheque.parcelas_pagas ?? 0
-  const total = cheque.total_parcelas
-  const proxima = pagas + 1
-  const finalizado = pagas >= total
-
-  if (finalizado) {
-    return (
-      <span
-        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium tabular"
-        style={{
-          backgroundColor: 'var(--positive-dim)',
-          color: 'var(--positive)',
-          border: '1px solid var(--positive-border)',
-        }}
-      >
-        {total}/{total} quitado
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium tabular"
-      style={{
-        backgroundColor: 'var(--purple-dim)',
-        color: 'var(--purple)',
-        border: '1px solid var(--purple-border)',
-      }}
-    >
-      <span style={{ opacity: 0.7 }}>{proxima}ª</span>/{total}
-    </span>
   )
 }

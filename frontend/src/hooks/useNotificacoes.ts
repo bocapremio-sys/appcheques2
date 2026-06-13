@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Cheque } from '../types/cheque'
+import { parseISODate } from '../utils/chequeCalculo'
 
 export type TipoNotificacao = 'vence_hoje' | 'vence_amanha' | 'vence_em_breve' | 'vencido'
 
@@ -57,8 +58,7 @@ export function useNotificacoes(cheques: Cheque[]): Notificacao[] {
     for (const cheque of cheques) {
       if (cheque.status !== 'em_custodia') continue
 
-      const vencimento = new Date(cheque.data_vencimento)
-      vencimento.setHours(0, 0, 0, 0)
+      const vencimento = parseISODate(cheque.data_vencimento)
 
       const diasRestantes = Math.round(
         (vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)

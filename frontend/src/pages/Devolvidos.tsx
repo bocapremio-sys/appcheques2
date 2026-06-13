@@ -4,6 +4,7 @@ import type { Cheque, MotivoDevolucao } from '../types/cheque'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatarMoeda, formatarData, formatarCpfCnpj } from '../utils/formatters'
 import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
+import { parseISODate } from '../utils/chequeCalculo'
 import { BANCOS } from '../utils/mockData'
 
 const MOTIVO_LABELS: Record<MotivoDevolucao, string> = {
@@ -22,6 +23,7 @@ interface DevolvidosProps {
 
 export function Devolvidos({ cheques, onVerDetalhe }: DevolvidosProps) {
   const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
 
   const devolvidos = useMemo(
     () => cheques.filter((c) => c.status === 'devolvido'),
@@ -34,7 +36,7 @@ export function Devolvidos({ cheques, onVerDetalhe }: DevolvidosProps) {
 
   const totalRisco = useMemo(() =>
     devolvidos.reduce((acc, c) => {
-      const devolucao = c.data_devolucao ? new Date(c.data_devolucao) : hoje
+      const devolucao = c.data_devolucao ? parseISODate(c.data_devolucao) : hoje
       const dias = calcularDiasCorreidos(devolucao, hoje)
       const jurosPos = calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
       return acc + c.valor_nominal + jurosPos
@@ -86,7 +88,7 @@ export function Devolvidos({ cheques, onVerDetalhe }: DevolvidosProps) {
               </thead>
               <tbody>
                 {devolvidos.map((cheque, idx) => {
-                  const devolucao = cheque.data_devolucao ? new Date(cheque.data_devolucao) : hoje
+                  const devolucao = cheque.data_devolucao ? parseISODate(cheque.data_devolucao) : hoje
                   const diasPos = calcularDiasCorreidos(devolucao, hoje)
                   const jurosPos = calcularJuros(cheque.valor_nominal, cheque.taxa_juros_mes, diasPos)
                   const exposicao = cheque.valor_nominal + jurosPos
@@ -155,7 +157,7 @@ export function Devolvidos({ cheques, onVerDetalhe }: DevolvidosProps) {
             {/* Mobile cards */}
             <div className="md:hidden divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
               {devolvidos.map((cheque) => {
-                const devolucao = cheque.data_devolucao ? new Date(cheque.data_devolucao) : hoje
+                const devolucao = cheque.data_devolucao ? parseISODate(cheque.data_devolucao) : hoje
                 const diasPos = calcularDiasCorreidos(devolucao, hoje)
                 const jurosPos = calcularJuros(cheque.valor_nominal, cheque.taxa_juros_mes, diasPos)
                 return (

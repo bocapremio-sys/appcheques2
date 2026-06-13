@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Calendar, Users, ChevronDown, Download, FileS
 import type { Cheque } from '../types/cheque'
 import { formatarMoeda, formatarData } from '../utils/formatters'
 import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
+import { parseISODate } from '../utils/chequeCalculo'
 import { exportarRelatorioExcel, exportarRelatorioPDF, exportarClienteExcel } from '../utils/exportar'
 
 interface RelatoriosProps {
@@ -31,6 +32,7 @@ export function Relatorios({ cheques }: RelatoriosProps) {
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('30d')
   const [abaRelatorio, setAbaRelatorio] = useState<'periodo' | 'clientes' | 'vencimentos'>('periodo')
   const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
 
   const chequesPerido = useMemo(() => filtrarPorPeriodo(cheques, periodo), [cheques, periodo])
 
@@ -42,13 +44,13 @@ export function Relatorios({ cheques }: RelatoriosProps) {
     const emCustodia = chequesPerido.filter((c) => c.status === 'em_custodia')
 
     const lucroJuros = compensados.reduce((acc, c) => {
-      const saida = c.data_compensacao ? new Date(c.data_compensacao) : hoje
-      const dias = calcularDiasCorreidos(new Date(c.data_entrada_custodia), saida)
+      const saida = c.data_compensacao ? parseISODate(c.data_compensacao) : hoje
+      const dias = calcularDiasCorreidos(parseISODate(c.data_entrada_custodia), saida)
       return acc + calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
     }, 0)
 
     const prejuizo = devolvidos.reduce((acc, c) => {
-      const devolucao = c.data_devolucao ? new Date(c.data_devolucao) : hoje
+      const devolucao = c.data_devolucao ? parseISODate(c.data_devolucao) : hoje
       const dias = calcularDiasCorreidos(devolucao, hoje)
       const jurosPos = calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
       return acc + c.valor_nominal + jurosPos
@@ -82,8 +84,8 @@ export function Relatorios({ cheques }: RelatoriosProps) {
         total: 0, compensados: 0, devolvidos: 0,
         valorTotal: 0, jurosTotal: 0,
       }
-      const saida = c.data_compensacao ? new Date(c.data_compensacao) : hoje
-      const dias = calcularDiasCorreidos(new Date(c.data_entrada_custodia), saida)
+      const saida = c.data_compensacao ? parseISODate(c.data_compensacao) : hoje
+      const dias = calcularDiasCorreidos(parseISODate(c.data_entrada_custodia), saida)
       const juros = c.status === 'compensado'
         ? calcularJuros(c.valor_nominal, c.taxa_juros_mes, dias)
         : 0
@@ -103,20 +105,20 @@ export function Relatorios({ cheques }: RelatoriosProps) {
 
   // ── Vencimentos próximos (30 dias) ────────────────────────
   const vencimentosProximos = useMemo(() => {
-    const limite = new Date()
+    const limite = new Date(hoje)
     limite.setDate(limite.getDate() + 30)
     return cheques
       .filter((c) => {
         if (c.status !== 'em_custodia') return false
-        const venc = new Date(c.data_vencimento)
+        const venc = parseISODate(c.data_vencimento)
         return venc >= hoje && venc <= limite
       })
-      .sort((a, b) => new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime())
+      .sort((a, b) => parseISODate(a.data_vencimento).getTime() - parseISODate(b.data_vencimento).getTime())
   }, [cheques])
 
   const vencidos = useMemo(() =>
-    cheques.filter((c) => c.status === 'em_custodia' && new Date(c.data_vencimento) < hoje)
-      .sort((a, b) => new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime()),
+    cheques.filter((c) => c.status === 'em_custodia' && parseISODate(c.data_vencimento) < hoje)
+      .sort((a, b) => parseISODate(a.data_vencimento).getTime() - parseISODate(b.data_vencimento).getTime()),
     [cheques]
   )
 
@@ -342,7 +344,7 @@ export function Relatorios({ cheques }: RelatoriosProps) {
             ) : (
               <div className="card overflow-hidden">
                 {vencimentosProximos.map((c, idx) => {
-                  const diasParaVencer = calcularDiasCorreidos(hoje, new Date(c.data_vencimento))
+                  const diasParaVencer = calcularDiasCorreidos(hoje, parseISODate(c.data_vencimento))
                   return (
                     <div
                       key={c.id}

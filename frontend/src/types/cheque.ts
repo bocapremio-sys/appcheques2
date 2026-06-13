@@ -8,19 +8,7 @@ export type MotivoDevolucao =
   | 'prescrito'
   | 'outros'
 
-export interface Parcela {
-  numero: number           // 1-based: parcela 1, 2, 3…
-  data_vencimento: string  // dia útil calculado
-  valor: number
-  pago: boolean
-  data_pagamento?: string
-}
-
 export interface Cheque {
-  // Parcelamento (opcional)
-  total_parcelas?: number
-  parcelas_pagas?: number
-  parcelas?: Parcela[]
   id: string
   numero: string
   emitente: string
@@ -31,7 +19,7 @@ export interface Cheque {
   valor_nominal: number
   data_emissao: string
   data_vencimento: string
-  data_entrada_custodia: string
+  data_entrada_custodia: string  // legado: mantido por compatibilidade com o banco (NOT NULL), não usado nos cálculos
   taxa_juros_mes: number   // % ao mês (ex: 3.3 = 3,3% a.m.)
   status: ChequeStatus
   motivo_devolucao?: MotivoDevolucao
@@ -43,16 +31,7 @@ export interface Cheque {
   updated_at: string
 }
 
-export interface ChequeCalculado extends Cheque {
-  dias_corridos: number
-  juros: number
-  valor_liquido: number   // valor_nominal - juros (desconto)
-  lucro_prejuizo: number
-}
-
 export interface ChequeFormData {
-  // Parcelamento
-  total_parcelas?: number
   numero: string
   emitente: string
   cpf_cnpj: string
@@ -62,7 +41,6 @@ export interface ChequeFormData {
   valor_nominal: number
   data_emissao: string
   data_vencimento: string
-  data_entrada_custodia: string
   taxa_juros_mes: number   // % ao mês (ex: 3.3 = 3,3% a.m.)
   observacoes?: string
 }
@@ -77,42 +55,50 @@ export interface Emitente {
   taxa_juros_mes: number
 }
 
+export interface DashboardStatusResumo {
+  quantidade: number
+  valorNominal: number
+}
+
+export interface DashboardChequeLinha {
+  id: string
+  numero: string
+  emitente: string
+  banco: string
+  valorNominal: number
+  taxaMensalPercent: number
+  taxaDiariaPercent: number
+  valorMes: number
+  valorDia: number
+  dataEmissao: string
+  vencimentoOriginal: string
+  vencimentoAjustado: string
+  vencimentoFoiAjustado: boolean
+  motivoAjusteVencimento: string | null
+  diasCalculo: number
+  desconto: number
+  valorLiquido: number
+  status: ChequeStatus
+}
+
 export interface DashboardMetrics {
-  // Contagens
-  total_cheques: number
-  em_custodia: number
-  compensados: number
-  devolvidos: number
-  recuperados: number
-  cancelados: number
+  // Totais gerais
+  totalNominal: number
+  totalDesconto: number
+  totalLiquido: number
+  quantidadeCheques: number
+  descontoMedio: number
 
-  // Financeiro — capital
-  capital_total_desembolsado: number
-  capital_retornado: number
-  capital_em_risco: number
+  // Cheques por status (quantidade + valor nominal)
+  porStatus: Record<ChequeStatus, DashboardStatusResumo>
 
-  // Financeiro — custódia atual
-  valor_total_custodia: number
-  juros_projetados_custodia: number
-  valor_total_com_juros: number
+  // Próximos vencimentos (usando data de vencimento ajustada)
+  proximosVencimentos: DashboardChequeLinha[]
 
-  // Financeiro — histórico (todos os períodos)
-  lucro_total: number
-  prejuizo_total: number
-  resultado_liquido_total: number
+  // Cheques cujo vencimento foi ajustado (sábado/domingo/feriado)
+  chequesComVencimentoAjustado: DashboardChequeLinha[]
+  quantidadeChequesAjustados: number
 
-  // Financeiro — mês atual
-  lucro_mes: number
-  prejuizo_mes: number
-  resultado_liquido_mes: number
-
-  // Indicadores operacionais
-  taxa_inadimplencia: number
-  taxa_compensacao: number
-  tempo_medio_custodia_dias: number
-  cheques_vencidos: number
-  valor_vencido: number
-
-  // Motivos de devolução
-  motivos_devolucao: Record<string, number>
+  // Tabela detalhada (todos os cheques, com campos do cálculo central)
+  linhas: DashboardChequeLinha[]
 }

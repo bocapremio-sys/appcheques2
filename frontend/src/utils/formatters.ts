@@ -11,6 +11,10 @@ export function formatarData(dataStr: string): string {
   return `${dia}/${mes}/${ano}`
 }
 
+export function formatarPercentual(valor: number): string {
+  return `${valor.toFixed(2).replace('.', ',')}%`
+}
+
 export function formatarCpfCnpj(valor: string): string {
   const numeros = valor.replace(/\D/g, '')
   if (numeros.length === 11) {
