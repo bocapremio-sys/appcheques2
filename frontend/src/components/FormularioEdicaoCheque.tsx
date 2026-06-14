@@ -204,7 +204,7 @@ export function FormularioEdicaoCheque({
               {...register('data_vencimento', {
                 required: 'Data de vencimento obrigatória',
                 validate: (v) =>
-                  !dataEmissao || !v || v >= dataEmissao || 'Vencimento não pode ser anterior à emissão',
+                  !dataEmissao || !v || v > dataEmissao || 'Vencimento deve ser posterior à data de emissão',
               })}
               className="input tabular"
             />

@@ -20,7 +20,7 @@ export interface ChequeDiscountInput {
   /**
    * Se `true` (padrão), a taxa diária percentual é arredondada para 2 casas
    * decimais (para cima) antes de ser convertida em decimal. Se `false`, usa
-   * a taxa diária exata (monthlyInterestRatePercent / 30 / 100).
+   * a taxa diária exata (monthlyInterestRatePercent / calculatedDays / 100).
    */
   roundDailyRate?: boolean
 }
@@ -139,8 +139,8 @@ function roundMoney(value: number): number {
 
 /**
  * Arredonda a taxa diária percentual para 2 casas decimais "para cima"
- * (ex: 10 / 30 = 0,333333 → 0,34), conforme o rascunho da reunião descrito
- * na especificação (roundDailyRate = true).
+ * (ex: 10 / 30 dias = 0,333333 → 0,34), conforme o rascunho da reunião
+ * descrito na especificação (roundDailyRate = true).
  */
 function roundDailyRateUp(percent: number): number {
   return Math.ceil(percent * 100 - 1e-9) / 100 || 0
@@ -188,7 +188,8 @@ export function calculateChequeDiscount(input: ChequeDiscountInput): ChequeDisco
   const calculatedDays = calendarDays
 
   const monthlyInterestRateDecimal = monthlyInterestRatePercent / 100
-  const dailyInterestRatePercentExact = monthlyInterestRatePercent / 30
+  const dailyInterestRatePercentExact =
+    calculatedDays > 0 ? monthlyInterestRatePercent / calculatedDays : 0
   const dailyInterestRatePercent = roundDailyRate
     ? roundDailyRateUp(dailyInterestRatePercentExact)
     : dailyInterestRatePercentExact
