@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { TrendingUp, TrendingDown, Calendar, Users, ChevronDown, Download, FileSpreadsheet, FileText } from 'lucide-react'
 import type { Cheque } from '../types/cheque'
-import { formatarMoeda, formatarData } from '../utils/formatters'
+import { StatusBadge } from '../components/StatusBadge'
+import { formatarMoeda, formatarData, formatarPercentual } from '../utils/formatters'
 import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
 import { calculateChequeDiscount, parseISODate } from '../utils/chequeCalculo'
 import { exportarRelatorioExcel, exportarRelatorioPDF, exportarClienteExcel } from '../utils/exportar'
@@ -244,6 +245,21 @@ export function Relatorios({ cheques }: RelatoriosProps) {
               </div>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <h3 className="section-title">Detalhamento por cheque — {PERIODO_LABELS[periodo]}</h3>
+            {chequesPerido.length === 0 ? (
+              <div className="card p-6 text-center">
+                <p className="text-sm" style={{ color: 'var(--text-faint)' }}>Nenhum cheque no período selecionado.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {chequesPerido.map((c) => (
+                  <DetalhamentoChequeCard key={c.id} cheque={c} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -390,6 +406,96 @@ function MetricCard({ label, valor, sub, color }: { label: string; valor: string
       <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
       <p className="tabular text-xl font-bold" style={{ color }}>{valor}</p>
       <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>{sub}</p>
+    </div>
+  )
+}
+
+function DetalhamentoChequeCard({ cheque }: { cheque: Cheque }) {
+  const [aberto, setAberto] = useState(false)
+
+  const calculo = calculateChequeDiscount({
+    nominalValue: cheque.valor_nominal,
+    monthlyInterestRatePercent: cheque.taxa_juros_mes,
+    issueDate: cheque.data_emissao,
+    dueDate: cheque.data_vencimento,
+  })
+
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setAberto((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <div className="min-w-0 flex items-center gap-3">
+          <StatusBadge status={cheque.status} />
+          <div className="min-w-0">
+            <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>{cheque.emitente}</p>
+            <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>#{cheque.numero}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Valor líquido</p>
+            <p className="tabular font-semibold text-sm" style={{ color: 'var(--positive)' }}>{formatarMoeda(calculo.netValue)}</p>
+          </div>
+          <ChevronDown
+            size={16}
+            style={{
+              color: 'var(--text-faint)',
+              transform: aberto ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s ease-out',
+            }}
+          />
+        </div>
+      </button>
+
+      {aberto && (
+        <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 mb-3">
+            <Item label="Valor nominal" value={formatarMoeda(calculo.nominalValue)} />
+            <Item label="Taxa mensal" value={`${formatarPercentual(calculo.monthlyInterestRatePercent)} a.m.`} />
+            <Item label="Taxa diária" value={`${formatarPercentual(calculo.dailyInterestRatePercent)} a.d.`} />
+            <Item label="Dias de cálculo" value={String(calculo.calculatedDays)} />
+            <Item label="Emissão" value={formatarData(calculo.issueDate)} />
+            <Item label="Vencimento original" value={formatarData(calculo.originalDueDate)} />
+            {calculo.wasDueDateAdjusted && (
+              <Item label="Vencimento ajustado" value={formatarData(calculo.adjustedDueDate)} />
+            )}
+            <Item label="Dias úteis" value={String(calculo.businessDays)} />
+          </div>
+
+          <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-xs font-mono tabular" style={{ color: 'var(--text-secondary)' }}>
+              {formatarMoeda(calculo.nominalValue)} × {calculo.calculatedDays} dias × {formatarPercentual(calculo.dailyInterestRatePercent)}/dia
+              {' = '}
+              <span className="font-semibold" style={{ color: 'var(--positive)' }}>{formatarMoeda(calculo.totalDiscountValue)}</span>
+            </p>
+            {calculo.wasDueDateAdjusted && (
+              <p className="text-xs mt-1.5 leading-relaxed" style={{ color: 'var(--warning)' }}>
+                {calculo.dueDateAdjustmentReason} Vencimento usado no cálculo: {formatarData(calculo.adjustedDueDate)}.
+              </p>
+            )}
+          </div>
+
+          <Linha label="Desconto (lucro em juros)" valor={formatarMoeda(calculo.totalDiscountValue)} color="var(--positive)" />
+          <Linha label="Valor líquido" valor={formatarMoeda(calculo.netValue)} bold />
+
+          {cheque.status === 'devolvido' && (
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: 'var(--danger)' }}>
+              Cheque devolvido — o desconto contratado acima não foi realizado. O valor nominal entra como exposição a prejuízo no resumo do período.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Item({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs" style={{ color: 'var(--text-faint)' }}>{label}</p>
+      <p className="text-sm font-medium tabular" style={{ color: 'var(--text-primary)' }}>{value}</p>
     </div>
   )
 }
