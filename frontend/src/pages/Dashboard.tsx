@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import type { Cheque, ChequeStatus, DashboardMetrics } from '../types/cheque'
 import { StatusBadge } from '../components/StatusBadge'
-import { formatarMoeda, formatarData, formatarPercentual } from '../utils/formatters'
+import { formatarMoeda, formatarData } from '../utils/formatters'
 import { parseISODate } from '../utils/chequeCalculo'
 
 interface DashboardProps {
@@ -179,26 +179,19 @@ export function Dashboard({ metrics, cheques, onVerDetalhe }: DashboardProps) {
         </div>
 
         {/* Desktop — tabela */}
-        <div className="overflow-x-auto hidden md:block mt-4">
-          <table className="w-full text-sm">
+        <div className="hidden md:block mt-4">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Número</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Emitente</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Banco</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Valor Nominal</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Taxa a.m.</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Taxa a.d.</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Valor Mês</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Valor Dia</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Emissão</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Venc. Original</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Venc. Ajustado</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Dias Cálculo</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Desconto</th>
-                <th className="text-right px-3 py-3 section-title whitespace-nowrap">Valor Líquido</th>
-                <th className="text-left px-3 py-3 section-title whitespace-nowrap">Status</th>
-                <th className="px-3 py-3" />
+                <th className="text-left px-3 py-3 section-title" style={{ width: '22%' }}>Emitente</th>
+                <th className="text-right px-3 py-3 section-title" style={{ width: '13%' }}>Nominal</th>
+                <th className="text-right px-3 py-3 section-title" style={{ width: '8%' }}>Taxa a.d.</th>
+                <th className="text-right px-3 py-3 section-title" style={{ width: '7%' }}>Dias</th>
+                <th className="text-right px-3 py-3 section-title" style={{ width: '12%' }}>Desconto</th>
+                <th className="text-right px-3 py-3 section-title" style={{ width: '13%' }}>Líquido</th>
+                <th className="text-left px-3 py-3 section-title" style={{ width: '12%' }}>Vencimento</th>
+                <th className="text-left px-3 py-3 section-title" style={{ width: '10%' }}>Status</th>
+                <th className="px-1 py-3" style={{ width: '3%' }} />
               </tr>
             </thead>
             <tbody>
@@ -211,28 +204,18 @@ export function Dashboard({ metrics, cheques, onVerDetalhe }: DashboardProps) {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--bg-overlay)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'transparent' }}
                 >
-                  <td className="px-3 py-3 font-mono text-xs" style={{ color: 'var(--text-faint)' }}>#{linha.numero}</td>
-                  <td className="px-3 py-3 font-medium truncate max-w-[160px]" style={{ color: 'var(--text-primary)' }}>{linha.emitente}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{linha.banco}</td>
-                  <td className="px-3 py-3 text-right tabular font-semibold" style={{ color: 'var(--text-primary)' }}>{formatarMoeda(linha.valorNominal)}</td>
-                  <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarPercentual(linha.taxaMensalPercent)}</td>
-                  <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarPercentual(linha.taxaDiariaPercent)}</td>
-                  <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarMoeda(linha.valorMes)}</td>
-                  <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarMoeda(linha.valorDia)}</td>
-                  <td className="px-3 py-3 tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarData(linha.dataEmissao)}</td>
-                  <td className="px-3 py-3 tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarData(linha.vencimentoOriginal)}</td>
-                  <td className="px-3 py-3 tabular text-xs">
-                    {linha.vencimentoFoiAjustado ? (
-                      <span style={{ color: 'var(--warning)' }}>Ajustado · {formatarData(linha.vencimentoAjustado)}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-faint)' }}>Sem ajuste</span>
-                    )}
+                  <td className="px-3 py-3" style={{ color: 'var(--text-primary)' }}>
+                    <p className="font-medium truncate">{linha.emitente}</p>
+                    <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>#{linha.numero}</p>
                   </td>
+                  <td className="px-3 py-3 text-right tabular font-semibold" style={{ color: 'var(--text-primary)' }}>{formatarMoeda(linha.valorNominal)}</td>
+                  <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{linha.taxaDiariaPercent.toFixed(3).replace('.', ',')}%</td>
                   <td className="px-3 py-3 text-right tabular text-xs" style={{ color: 'var(--text-muted)' }}>{linha.diasCalculo}</td>
                   <td className="px-3 py-3 text-right tabular font-semibold" style={{ color: 'var(--danger)' }}>{formatarMoeda(linha.desconto)}</td>
                   <td className="px-3 py-3 text-right tabular font-semibold" style={{ color: 'var(--positive)' }}>{formatarMoeda(linha.valorLiquido)}</td>
+                  <td className="px-3 py-3 tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatarData(linha.vencimentoAjustado)}</td>
                   <td className="px-3 py-3"><StatusBadge status={linha.status} /></td>
-                  <td className="px-3 py-3">
+                  <td className="px-1 py-3">
                     <ChevronRight size={14} style={{ color: 'var(--text-faint)' }} />
                   </td>
                 </tr>
