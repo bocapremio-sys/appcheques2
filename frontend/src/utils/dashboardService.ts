@@ -67,6 +67,12 @@ export function calcularMetricasDashboard(cheques: Cheque[]): DashboardMetrics {
 
   const chequesComVencimentoAjustado = linhas.filter((l) => l.vencimentoFoiAjustado)
 
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const chequesVencidos = linhas
+    .filter((l) => l.status === 'em_custodia' && parseISODate(l.vencimentoAjustado) < hoje)
+    .sort((a, b) => parseISODate(a.vencimentoAjustado).getTime() - parseISODate(b.vencimentoAjustado).getTime())
+
   return {
     totalNominal,
     totalDesconto,
@@ -77,6 +83,7 @@ export function calcularMetricasDashboard(cheques: Cheque[]): DashboardMetrics {
     proximosVencimentos,
     chequesComVencimentoAjustado,
     quantidadeChequesAjustados: chequesComVencimentoAjustado.length,
+    chequesVencidos,
     linhas,
   }
 }

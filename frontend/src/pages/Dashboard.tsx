@@ -11,6 +11,7 @@ import {
 import type { Cheque, ChequeStatus, DashboardMetrics } from '../types/cheque'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatarMoeda, formatarData, formatarPercentual } from '../utils/formatters'
+import { parseISODate } from '../utils/chequeCalculo'
 
 interface DashboardProps {
   metrics: DashboardMetrics
@@ -129,26 +130,23 @@ export function Dashboard({ metrics, cheques, onVerDetalhe }: DashboardProps) {
 
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle size={15} style={{ color: 'var(--text-muted)' }} />
-            <h2 className="section-title">Vencimentos Ajustados</h2>
+            <AlertTriangle size={15} style={{ color: 'var(--danger)' }} />
+            <h2 className="section-title">Vencidos</h2>
           </div>
-          {metrics.quantidadeChequesAjustados === 0 ? (
+          {metrics.chequesVencidos.length === 0 ? (
             <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
-              Nenhum cheque com vencimento ajustado.
+              Nenhum cheque vencido.
             </p>
           ) : (
-            <>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                {metrics.quantidadeChequesAjustados} cheque{metrics.quantidadeChequesAjustados > 1 ? 's' : ''} com
-                vencimento original em fim de semana ou feriado.
-              </p>
-              <div className="space-y-2">
-                {metrics.chequesComVencimentoAjustado.slice(0, 5).map((linha) => (
+            <div className="space-y-2">
+              {metrics.chequesVencidos.slice(0, 5).map((linha) => {
+                const diasAtraso = Math.floor((Date.now() - parseISODate(linha.vencimentoAjustado).getTime()) / (1000 * 60 * 60 * 24))
+                return (
                   <button
                     key={linha.id}
                     onClick={() => abrirCheque(linha.id)}
                     className="w-full flex items-center justify-between gap-3 py-2 px-3 rounded-lg transition-colors duration-150"
-                    style={{ backgroundColor: 'var(--warning-dim)', border: '1px solid var(--warning-border)' }}
+                    style={{ backgroundColor: 'var(--danger-dim)', border: '1px solid var(--danger-border)' }}
                   >
                     <div className="text-left min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
@@ -159,14 +157,17 @@ export function Dashboard({ metrics, cheques, onVerDetalhe }: DashboardProps) {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs tabular" style={{ color: 'var(--warning)' }}>
-                        {formatarData(linha.vencimentoOriginal)} → {formatarData(linha.vencimentoAjustado)}
+                      <p className="text-xs tabular font-medium" style={{ color: 'var(--danger)' }}>
+                        {diasAtraso} dia{diasAtraso !== 1 ? 's' : ''} atrasado
+                      </p>
+                      <p className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>
+                        Venc. {formatarData(linha.vencimentoAjustado)}
                       </p>
                     </div>
                   </button>
-                ))}
-              </div>
-            </>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>

@@ -99,6 +99,9 @@ export interface DashboardMetrics {
   chequesComVencimentoAjustado: DashboardChequeLinha[]
   quantidadeChequesAjustados: number
 
+  // Cheques vencidos (em custódia com data de vencimento no passado)
+  chequesVencidos: DashboardChequeLinha[]
+
   // Tabela detalhada (todos os cheques, com campos do cálculo central)
   linhas: DashboardChequeLinha[]
 }
