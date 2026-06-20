@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { X, CheckCircle2, XCircle, Calendar, Building2, CreditCard, RefreshCw, Pencil } from 'lucide-react'
+import { X, CheckCircle2, XCircle, Calendar, Building2, RefreshCw, Pencil } from 'lucide-react'
 import type { Cheque, ChequeStatus, MotivoDevolucao } from '../types/cheque'
 import { StatusBadge } from './StatusBadge'
-import { formatarMoeda, formatarData, formatarCpfCnpj } from '../utils/formatters'
-import { calcularDiasCorreidos, calcularJuros, calcularValorLiquido } from '../utils/diasUteis'
-import { proximaParcelaAberta } from '../utils/parcelamento'
+import { formatarMoeda, formatarData, formatarCpfCnpj, formatarPercentual } from '../utils/formatters'
+import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
+import { calculateChequeDiscount, parseISODate, formatISODate } from '../utils/chequeCalculo'
 import { BANCOS } from '../utils/mockData'
 
 const MOTIVOS_DEVOLUCAO: Record<MotivoDevolucao, string> = {
@@ -20,27 +20,28 @@ interface DetalheChequeProps {
   cheque: Cheque
   onFechar: () => void
   onAtualizarStatus: (id: string, status: ChequeStatus, extra?: Partial<Cheque>) => void
-  onRegistrarPagamento: (id: string, numeroParcela: number, dataPagamento: string) => void
   onEditar: (cheque: Cheque) => void
 }
 
-export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrarPagamento, onEditar }: DetalheChequeProps) {
-  const [acao, setAcao] = useState<'compensar' | 'devolver' | 'parcela' | 'recuperar' | null>(null)
+export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onEditar }: DetalheChequeProps) {
+  const [acao, setAcao] = useState<'compensar' | 'devolver' | 'recuperar' | null>(null)
   const [motivoDevolucao, setMotivoDevolucao] = useState<MotivoDevolucao>('sem_fundos')
-  const [dataAcao, setDataAcao] = useState(new Date().toISOString().split('T')[0])
+  const [dataAcao, setDataAcao] = useState(formatISODate(new Date()))
 
   const hoje = new Date()
-  const dataEntrada = new Date(cheque.data_entrada_custodia)
+  const dataEntrada = parseISODate(cheque.data_entrada_custodia)
 
-  // Fórmula correta: dias corridos / 30
-  const diasCorridos = calcularDiasCorreidos(dataEntrada, hoje)
-  const juros = calcularJuros(cheque.valor_nominal, cheque.taxa_juros_mes, diasCorridos)
-  const valorLiquido = calcularValorLiquido(cheque.valor_nominal, juros)
+  const calculo = calculateChequeDiscount({
+    nominalValue: cheque.valor_nominal,
+    monthlyInterestRatePercent: cheque.taxa_juros_mes,
+    issueDate: cheque.data_emissao,
+    dueDate: cheque.data_vencimento,
+  })
 
   // Juros pós-devolução (correndo desde a data de devolução)
   const jurosPosDevolucao = (() => {
     if (cheque.status !== 'devolvido' || !cheque.data_devolucao) return 0
-    const devolucao = new Date(cheque.data_devolucao)
+    const devolucao = parseISODate(cheque.data_devolucao)
     const dias = calcularDiasCorreidos(devolucao, hoje)
     return calcularJuros(cheque.valor_nominal, cheque.taxa_juros_mes, dias)
   })()
@@ -48,13 +49,10 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
   // Para cheques compensados: juros do período de custódia
   const jurosCompensado = (() => {
     if (cheque.status !== 'compensado' || !cheque.data_compensacao) return 0
-    const saida = new Date(cheque.data_compensacao)
+    const saida = parseISODate(cheque.data_compensacao)
     const dias = calcularDiasCorreidos(dataEntrada, saida)
     return calcularJuros(cheque.valor_nominal, cheque.taxa_juros_mes, dias)
   })()
-
-  const proximaParcela = cheque.parcelas ? proximaParcelaAberta(cheque.parcelas) : undefined
-  const ehParcelado = cheque.total_parcelas && cheque.total_parcelas > 1
 
   const handleCompensado = () => {
     onAtualizarStatus(cheque.id, 'compensado', { data_compensacao: dataAcao })
@@ -72,12 +70,6 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
   const handleRecuperado = () => {
     onAtualizarStatus(cheque.id, 'recuperado', { data_recuperacao: dataAcao })
     onFechar()
-  }
-
-  const handlePagamentoParcela = () => {
-    if (!proximaParcela) return
-    onRegistrarPagamento(cheque.id, proximaParcela.numero, dataAcao)
-    setAcao(null)
   }
 
   return (
@@ -111,11 +103,6 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
             </div>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {cheque.emitente}
-              {ehParcelado && (
-                <span className="ml-2 text-xs tabular" style={{ color: 'var(--accent)' }}>
-                  {cheque.parcelas_pagas}/{cheque.total_parcelas} parcelas pagas
-                </span>
-              )}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -164,99 +151,17 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
               />
               <Info label="Agência / Conta" value={`${cheque.agencia} / ${cheque.conta}`} />
               <Info label="Valor Nominal" value={formatarMoeda(cheque.valor_nominal)} mono />
-              <Info label="Taxa de Juros" value={`${cheque.taxa_juros_mes}% a.m.`} mono />
+              <Info label="Taxa de Juros" value={`${formatarPercentual(cheque.taxa_juros_mes)} a.m.`} mono />
               <Info label="Emissão" value={formatarData(cheque.data_emissao)} mono />
               <Info label="Vencimento" value={formatarData(cheque.data_vencimento)} mono />
-              <Info
-                label="Entrada em Custódia"
-                value={formatarData(cheque.data_entrada_custodia)}
-                mono
-              />
+              {calculo.wasDueDateAdjusted && (
+                <Info label="Vencimento Ajustado" value={formatarData(calculo.adjustedDueDate)} mono />
+              )}
               {cheque.observacoes && (
                 <Info label="Observações" value={cheque.observacoes} full />
               )}
             </div>
           </div>
-
-          {/* Parcelamento */}
-          {ehParcelado && cheque.parcelas && (
-            <div
-              className="rounded-xl p-4"
-              style={{
-                backgroundColor: 'var(--purple-dim)',
-                border: '1px solid var(--purple-border)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="section-title" style={{ color: 'var(--purple)' }}>
-                  Parcelamento
-                </p>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-1.5 rounded-full overflow-hidden"
-                    style={{ width: '80px', backgroundColor: 'var(--purple-dim)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${((cheque.parcelas_pagas ?? 0) / cheque.total_parcelas!) * 100}%`,
-                        backgroundColor: 'var(--purple)',
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs tabular" style={{ color: 'var(--purple)' }}>
-                    {cheque.parcelas_pagas}/{cheque.total_parcelas}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {cheque.parcelas.map((p) => (
-                  <div
-                    key={p.numero}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg"
-                    style={{
-                      backgroundColor: p.pago ? 'var(--positive-dim)' : 'var(--border-subtle)',
-                      border: p.pago ? '1px solid var(--positive-border)' : '1px solid var(--border-subtle)',
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="text-xs tabular font-mono w-5 text-center"
-                        style={{ color: p.pago ? 'var(--positive)' : 'var(--text-muted)' }}
-                      >
-                        {p.numero}ª
-                      </span>
-                      <span className="text-xs tabular" style={{ color: p.pago ? 'var(--positive)' : 'var(--text-secondary)' }}>
-                        {formatarData(p.data_vencimento)}
-                      </span>
-                      {p.pago && p.data_pagamento && (
-                        <span className="text-xs" style={{ color: 'var(--positive)', opacity: 0.7 }}>
-                          · pago em {formatarData(p.data_pagamento)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="text-xs tabular font-medium"
-                        style={{ color: p.pago ? 'var(--positive)' : 'var(--text-primary)' }}
-                      >
-                        {formatarMoeda(p.valor)}
-                      </span>
-                      {p.pago ? (
-                        <CheckCircle2 size={14} style={{ color: 'var(--positive)' }} />
-                      ) : (
-                        <div
-                          className="w-3.5 h-3.5 rounded-full"
-                          style={{ border: '1.5px solid var(--border-default)' }}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Posição atual — em custódia */}
           {cheque.status === 'em_custodia' && (
@@ -273,10 +178,10 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-                    Dias Corridos
+                    Dias para Cálculo
                   </p>
                   <p className="tabular text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                    {diasCorridos}
+                    {calculo.calculatedDays}
                   </p>
                 </div>
                 <div>
@@ -284,7 +189,7 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
                     Juros (desconto)
                   </p>
                   <p className="tabular text-2xl font-bold" style={{ color: 'var(--positive)' }}>
-                    {formatarMoeda(juros)}
+                    {formatarMoeda(calculo.totalDiscountValue)}
                   </p>
                 </div>
                 <div>
@@ -292,24 +197,25 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
                     Valor Líquido
                   </p>
                   <p className="tabular text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                    {formatarMoeda(valorLiquido)}
+                    {formatarMoeda(calculo.netValue)}
                   </p>
                 </div>
               </div>
-              <div className="flex justify-start gap-6 mt-3">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Taxa Mensal</p>
-                  <p className="text-xs tabular font-medium" style={{ color: 'var(--text-secondary)' }}>
-                    {cheque.taxa_juros_mes.toFixed(2).replace('.', ',')}% a.m.
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Taxa Diária</p>
-                  <p className="text-xs tabular font-medium" style={{ color: 'var(--text-secondary)' }}>
-                    {(Math.ceil((cheque.taxa_juros_mes / 30) * 1000) / 1000).toFixed(3).replace('.', ',')}% a.d.
-                  </p>
-                </div>
+
+              <div
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3"
+                style={{ borderTop: '1px solid var(--accent-border)' }}
+              >
+                <Info label="Taxa Mensal" value={`${formatarPercentual(calculo.monthlyInterestRatePercent)} a.m.`} mono />
+                <Info label="Taxa Diária" value={`${formatarPercentual(calculo.dailyInterestRatePercent)} a.d.`} mono />
+                {calculo.wasDueDateAdjusted && (
+                  <Info label="Vencimento Ajustado" value={formatarData(calculo.adjustedDueDate)} mono />
+                )}
+                {calculo.dueDateAdjustmentReason && (
+                  <Info label="Motivo do Ajuste" value={calculo.dueDateAdjustmentReason} full />
+                )}
               </div>
+
               <p className="text-xs text-center mt-3" style={{ color: 'var(--text-faint)' }}>
                 Valor líquido = Valor nominal − Desconto calculado · Desconto = Valor nominal × dias para cálculo × taxa diária
               </p>
@@ -414,38 +320,20 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
           {/* Ações — em custódia */}
           {cheque.status === 'em_custodia' && !acao && (
             <div className="flex gap-3 flex-wrap">
-              {ehParcelado && proximaParcela && (
-                <button
-                  onClick={() => setAcao('parcela')}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-150"
-                  style={{ backgroundColor: 'var(--purple)', color: 'var(--bg-base)' }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '0.88')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
-                  }
-                >
-                  <CreditCard size={15} />
-                  Registrar Parcela {proximaParcela.numero}
-                </button>
-              )}
-              {!ehParcelado && (
-                <button
-                  onClick={() => setAcao('compensar')}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-150"
-                  style={{ backgroundColor: 'var(--positive)', color: 'var(--bg-base)' }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '0.88')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
-                  }
-                >
-                  <CheckCircle2 size={15} />
-                  Registrar Compensação
-                </button>
-              )}
+              <button
+                onClick={() => setAcao('compensar')}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-150"
+                style={{ backgroundColor: 'var(--positive)', color: 'var(--bg-base)' }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.opacity = '0.88')
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
+                }
+              >
+                <CheckCircle2 size={15} />
+                Registrar Compensação
+              </button>
               <button
                 onClick={() => setAcao('devolver')}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-150"
@@ -479,57 +367,6 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onRegistrar
               <RefreshCw size={15} />
               Registrar Recuperação
             </button>
-          )}
-
-          {/* Painel — parcela */}
-          {acao === 'parcela' && proximaParcela && (
-            <div
-              className="rounded-xl p-4 space-y-3"
-              style={{
-                backgroundColor: 'var(--purple-dim)',
-                border: '1px solid var(--purple-border)',
-              }}
-            >
-              <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--purple)' }}>
-                <CreditCard size={14} /> Confirmar Parcela {proximaParcela.numero} de {cheque.total_parcelas}
-              </p>
-              <div className="flex items-center gap-3 py-2 px-3 rounded-lg" style={{ backgroundColor: 'var(--purple-dim)' }}>
-                <span className="text-xs" style={{ color: 'var(--purple)' }}>Valor:</span>
-                <span className="text-sm font-semibold tabular" style={{ color: 'var(--text-primary)' }}>
-                  {formatarMoeda(proximaParcela.valor)}
-                </span>
-                <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>
-                  Vencimento: {formatarData(proximaParcela.data_vencimento)}
-                </span>
-              </div>
-              <div>
-                <label className="label">Data do Pagamento</label>
-                <input
-                  type="date"
-                  value={dataAcao}
-                  onChange={(e) => setDataAcao(e.target.value)}
-                  className="input tabular"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handlePagamentoParcela}
-                  className="btn-primary"
-                  style={{ backgroundColor: 'var(--purple)', boxShadow: 'none' }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '0.88')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
-                  }
-                >
-                  <CheckCircle2 size={14} /> Confirmar Pagamento
-                </button>
-                <button onClick={() => setAcao(null)} className="btn-secondary">
-                  Cancelar
-                </button>
-              </div>
-            </div>
           )}
 
           {/* Painel — compensar */}
