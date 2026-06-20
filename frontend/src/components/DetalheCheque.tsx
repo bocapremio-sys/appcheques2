@@ -207,7 +207,7 @@ export function DetalheCheque({ cheque, onFechar, onAtualizarStatus, onEditar }:
                 style={{ borderTop: '1px solid var(--accent-border)' }}
               >
                 <Info label="Taxa Mensal" value={`${formatarPercentual(calculo.monthlyInterestRatePercent)} a.m.`} mono />
-                <Info label="Taxa Diária" value={`${formatarPercentual(calculo.dailyInterestRatePercent)} a.d.`} mono />
+                <Info label="Taxa Diária" value={`${calculo.dailyInterestRatePercent.toFixed(3).replace('.', ',')}% a.d.`} mono />
                 {calculo.wasDueDateAdjusted && (
                   <Info label="Vencimento Ajustado" value={formatarData(calculo.adjustedDueDate)} mono />
                 )}
