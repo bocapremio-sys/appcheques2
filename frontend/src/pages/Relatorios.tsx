@@ -5,7 +5,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { formatarMoeda, formatarData, formatarPercentual } from '../utils/formatters'
 import { calcularDiasCorreidos, calcularJuros } from '../utils/diasUteis'
 import { calculateChequeDiscount, parseISODate } from '../utils/chequeCalculo'
-import { exportarRelatorioExcel, exportarRelatorioPDF, exportarClienteExcel } from '../utils/exportar'
+import { exportarRelatorioExcel, exportarRelatorioPDF, exportarClienteExcel, exportarVencimentosExcel, exportarVencimentosPDF } from '../utils/exportar'
 
 interface RelatoriosProps {
   cheques: Cheque[]
@@ -154,37 +154,68 @@ export function Relatorios({ cheques }: RelatoriosProps) {
           <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
             <Download size={12} className="inline mr-1" />Exportar:
           </span>
-          <button
-            onClick={() => exportarRelatorioExcel(chequesPerido, `Relatório ${PERIODO_LABELS[periodo]}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ backgroundColor: 'var(--positive-dim)', color: 'var(--positive)', border: '1px solid var(--positive-border)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
-            title="Exportar Excel"
-          >
-            <FileSpreadsheet size={13} /> Excel
-          </button>
-          <button
-            onClick={() => exportarRelatorioPDF(chequesPerido, 'Relatório de Cheques', PERIODO_LABELS[periodo])}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ backgroundColor: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid var(--danger-border)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
-            title="Exportar PDF"
-          >
-            <FileText size={13} /> PDF
-          </button>
+
+          {abaRelatorio === 'periodo' && (
+            <>
+              <button
+                onClick={() => exportarRelatorioExcel(chequesPerido, `Relatório ${PERIODO_LABELS[periodo]}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--positive-dim)', color: 'var(--positive)', border: '1px solid var(--positive-border)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
+                title="Exportar cheques do período em Excel"
+              >
+                <FileSpreadsheet size={13} /> Excel
+              </button>
+              <button
+                onClick={() => exportarRelatorioPDF(chequesPerido, 'Relatório de Cheques', PERIODO_LABELS[periodo])}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid var(--danger-border)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
+                title="Exportar relatório do período em PDF"
+              >
+                <FileText size={13} /> PDF
+              </button>
+            </>
+          )}
+
           {abaRelatorio === 'clientes' && (
             <button
               onClick={() => exportarClienteExcel(relClientes, PERIODO_LABELS[periodo])}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{ backgroundColor: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}
+              style={{ backgroundColor: 'var(--positive-dim)', color: 'var(--positive)', border: '1px solid var(--positive-border)' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
-              title="Exportar clientes Excel"
+              title="Exportar relatório por cliente em Excel"
             >
-              <Users size={13} /> Clientes
+              <FileSpreadsheet size={13} /> Excel
             </button>
+          )}
+
+          {abaRelatorio === 'vencimentos' && (
+            <>
+              <button
+                onClick={() => exportarVencimentosExcel(vencidos, vencimentosProximos)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--positive-dim)', color: 'var(--positive)', border: '1px solid var(--positive-border)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
+                title="Exportar vencimentos em Excel"
+              >
+                <FileSpreadsheet size={13} /> Excel
+              </button>
+              <button
+                onClick={() => exportarVencimentosPDF(vencidos, vencimentosProximos)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid var(--danger-border)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
+                title="Exportar vencimentos em PDF"
+              >
+                <FileText size={13} /> PDF
+              </button>
+            </>
           )}
         </div>
       </div>
