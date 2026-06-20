@@ -68,6 +68,7 @@ export function calcularJuros(
   taxaJurosMes: number,
   diasCorreidos: number
 ): number {
-  const taxaDia = taxaJurosMes / 30
-  return valorNominal * (taxaDia / 100) * diasCorreidos
+  const taxaDia = Math.ceil((taxaJurosMes / 30) * 1000) / 1000
+  const jurosBruto = valorNominal * diasCorreidos * (taxaDia / 100)
+  return Math.ceil(jurosBruto / 10) * 10
 }
