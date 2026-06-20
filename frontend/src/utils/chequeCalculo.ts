@@ -143,7 +143,7 @@ function roundMoney(value: number): number {
  * descrito na especificação (roundDailyRate = true).
  */
 function roundDailyRateUp(percent: number): number {
-  return Math.ceil(percent * 100 - 1e-9) / 100 || 0
+  return Math.ceil(percent * 1000 - 1e-9) / 1000 || 0
 }
 
 // ─── Função central de cálculo (seção 8) ────────────────────────────────────
@@ -188,8 +188,7 @@ export function calculateChequeDiscount(input: ChequeDiscountInput): ChequeDisco
   const calculatedDays = calendarDays
 
   const monthlyInterestRateDecimal = monthlyInterestRatePercent / 100
-  const dailyInterestRatePercentExact =
-    calculatedDays > 0 ? monthlyInterestRatePercent / calculatedDays : 0
+  const dailyInterestRatePercentExact = monthlyInterestRatePercent / 30
   const dailyInterestRatePercent = roundDailyRate
     ? roundDailyRateUp(dailyInterestRatePercentExact)
     : dailyInterestRatePercentExact
@@ -197,8 +196,8 @@ export function calculateChequeDiscount(input: ChequeDiscountInput): ChequeDisco
 
   const monthlyDiscountValue = roundMoney(nominalValue * monthlyInterestRateDecimal)
   const dailyDiscountValue = roundMoney(nominalValue * dailyInterestRateDecimal)
-  const totalDiscountValue = roundMoney(nominalValue * calculatedDays * dailyInterestRateDecimal)
-  const netValue = roundMoney(nominalValue - totalDiscountValue)
+  const totalDiscountValue = Math.ceil((nominalValue * calculatedDays * dailyInterestRateDecimal) / 10) * 10
+  const netValue = nominalValue - totalDiscountValue
 
   return {
     nominalValue,
